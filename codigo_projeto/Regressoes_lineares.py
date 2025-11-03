@@ -71,7 +71,7 @@ for asset_name in data_prices.columns:
     beta_1_tendencia = results.params['Time_Index']
     r_squared = results.rsquared
 
-    print("\n--- Interpretação Resumida ---")
+    print(f"\n--- Interpretação Resumida do {asset_name} ---")
     print(f"  Preço Inicial Estimado (const): {beta_0_preco_inicial:.4f}")
     print(f"  Tendência Diária (Time_Index):  {beta_1_tendencia:.4f}")
     print(f"  R-quadrado:                     {r_squared*100:.2f}%")
