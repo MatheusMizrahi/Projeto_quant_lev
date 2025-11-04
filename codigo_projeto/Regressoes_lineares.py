@@ -44,8 +44,11 @@ print(X_com_constante.tail())
 
 print("\n--- Iniciando Análises de Regressão (Ativo vs. Tempo) ---")
 
+#Dicionário R^2 e R
+dic_r_ativos={}
 # Iterar sobre cada ativo (INCLUINDO o S&P 500 desta vez)
 for asset_name in data_prices.columns:
+  
 
     print(f"\n\n=======================================================")
     print(f" REGRESSÃO: {asset_name} (Y) vs. Time_Index (X)")
@@ -70,11 +73,29 @@ for asset_name in data_prices.columns:
     beta_0_preco_inicial = results.params['const']
     beta_1_tendencia = results.params['Time_Index']
     r_squared = results.rsquared
+    p_value = results.pvalues['Time_Index']
+    
+    # Score ponderado: sinal(β₁) × √R² (raiz para não penalizar muito)
+    if p_value < 0.05:
+        score = np.sign(beta_1_tendencia) * np.sqrt(r_squared)
+    else:
+        score = 0  # Sem tendência confiável
+    
+    dic_r_ativos[asset_name] = {
+        'beta_1': beta_1_tendencia,
+        'r_squared': r_squared,
+        'score': score,
+        'significativo': p_value < 0.05
+    }
+   
+    
 
     print(f"\n--- Interpretação Resumida do {asset_name} ---")
     print(f"  Preço Inicial Estimado (const): {beta_0_preco_inicial:.4f}")
     print(f"  Tendência Diária (Time_Index):  {beta_1_tendencia:.4f}")
     print(f"  R-quadrado:                     {r_squared*100:.2f}%")
     print("------------------------------")
+
+
 
 print("\n\nScript concluído.")
