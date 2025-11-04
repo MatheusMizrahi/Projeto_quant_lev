@@ -102,5 +102,76 @@ Por fim, as regras são testadas historicamente:
 
 ---
 
-> _“Os mercados são como organismos interligados — compreender seus fluxos cruzados é compreender o próprio ciclo macroeconômico.”_  
+## 📍 STATUS DO PROJETO
+**Última atualização: 04 de Novembro de 2025**
+
+### ✅ **Implementado até o momento:**
+
+#### **Fase 1: Coleta e Preparação de Dados**
+- ✅ **`dowload.py`**: Script de download automático de dados via yfinance
+  - Ativos: SP500, DXY, HighYield_ETF (HYG), USD_BRL, Oil_WTI
+  - Período: Out/2020 a Out/2025
+  - Salvamento em CSV (`data_prices.csv`)
+
+#### **Fase 2: Análise de Regressões Lineares**
+- ✅ **`Regressoes_lineares.py`**: Classe `AnalisadorRegressao`
+  - Regressão linear de cada ativo vs. tempo
+  - Cálculo de Beta (tendência), R², p-value e score ponderado
+  - Score = sinal(β₁) × √R² (apenas se significativo)
+  - Estrutura modular e reutilizável
+  - Modo verbose/silencioso para importação
+
+#### **Fase 3: Classificação de Quadrantes**
+- ✅ **`Definicao_quadrante.py`**: Classe `ClassificadorQuadrantes`
+  - Cálculo de proxies compostas:
+    - **Inflação** = Oil_WTI (70%) + USD_BRL (30%)
+    - **Atividade** = SP500 (60%) + HighYield_ETF (40%)
+  - Mapeamento em sistema de coordenadas (Inflação × Atividade)
+  - Identificação automática dos 4 quadrantes macroeconômicos
+  - Limiares ajustáveis
+
+### 🚧 **Em desenvolvimento / Próximas etapas:**
+
+#### **Fase 4: Clusterização e Intensidade (K-Means)**
+- [ ] Implementar K-Means para classificar intensidade do regime (forte/moderado/fraco)
+- [ ] Definir features para clusterização (scores, volatilidades, correlações)
+- [ ] Validar número ótimo de clusters (Elbow Method / Silhouette Score)
+
+#### **Fase 5: Trading Rules e Alocação**
+- [ ] Criar regras de alocação para cada quadrante
+- [ ] Implementar sistema de hedge dinâmico
+- [ ] Definir pesos e posições long/short por regime
+- [ ] Ajustar tamanho de posição baseado na intensidade (K-Means)
+
+#### **Fase 6: Backtesting e Validação**
+- [ ] Implementar engine de backtesting
+- [ ] Testar janelas de rebalanceamento (5, 10, 20 dias)
+- [ ] Calcular métricas de performance:
+  - Retorno acumulado
+  - Sharpe Ratio
+  - Drawdown máximo
+  - Hit ratio
+  - Turnover
+- [ ] Otimização de hiperparâmetros (limiares, pesos, janelas)
+
+#### **Fase 7: Visualização e Reporting**
+- [ ] Criar dashboards interativos com plotly/dash
+- [ ] Gráficos de regime ao longo do tempo
+- [ ] Heatmaps de correlação entre ativos
+- [ ] Relatórios automatizados de performance
+
+#### **Fase 8: Deploy e Automação**
+- [ ] Automatizar atualização diária de dados
+- [ ] Sistema de alertas para mudanças de regime
+- [ ] API para consulta de regime atual
+- [ ] Integração com sistemas de execução (futuro)
+
+---
+
+### 🎯 **Marco Atual:**
+> Estamos na **transição entre Fase 3 e Fase 4**. A base de análise quantitativa está completa — conseguimos identificar regimes macroeconômicos a partir dos preços. O próximo passo crítico é adicionar inteligência sobre a **força/convicção** de cada sinal via clusterização.
+
+---
+
+> _"Os mercados são como organismos interligados — compreender seus fluxos cruzados é compreender o próprio ciclo macroeconômico."_  
 > — **LEV Quant Research Lab**

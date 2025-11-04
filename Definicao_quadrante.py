@@ -1,10 +1,111 @@
 
 import pandas as pd
-import statsmodels.api as sm
-import numpy as np  # Importar numpy
-import warnings
+import numpy as np
 from Regressoes_lineares import dic_r_ativos
 
 
-print(dic_r_ativos)
+class ClassificadorQuadrantes:
+    """
+    Classifica o regime macroeconômico em 4 quadrantes baseado em proxies de
+    Atividade Econômica (eixo Y) e Inflação (eixo X).
+    """
+    
+    def __init__(self, limiar_inflacao=0.5, limiar_atividade=0.3):
+        """
+        Args:
+            limiar_inflacao: threshold para separar inflação alta/baixa (padrão: 0.5)
+            limiar_atividade: threshold para separar atividade alta/baixa (padrão: 0.3)
+        """
+        # TODO: Considerar usar percentis históricos ao invés de valores fixos
+        self.limiar_inflacao = limiar_inflacao
+        self.limiar_atividade = limiar_atividade
+    
+    def calcular_proxies(self, dic_r_ativos):
+        """
+        Calcula índices compostos de Inflação e Atividade Econômica.
+        
+        Returns:
+            tuple: (atividade_score, inflacao_score)
+        """
+        # PROXY DE INFLAÇÃO (eixo X)
+        # TODO: Testar outros pesos (ex: adicionar commodities diversas)
+        inflacao_score = (
+            dic_r_ativos['Oil_WTI']['score'] * 0.7 +      # Commodities (forte indicador)
+            dic_r_ativos['USD_BRL']['score'] * 0.3        # Pressão cambial/importada
+        )
+        
+        # PROXY DE ATIVIDADE ECONÔMICA (eixo Y)
+        # TODO: Considerar adicionar peso negativo para DXY quando significativo
+        atividade_score = (
+            dic_r_ativos['SP500']['score'] * 0.6 +        # Crescimento econômico
+            dic_r_ativos['HighYield_ETF']['score'] * 0.4  # Condições de crédito
+        )
+        
+        return atividade_score, inflacao_score
+    
+    def identificar_quadrante(self, atividade, inflacao):
+        """
+        Classifica o regime em 4 quadrantes baseado nas coordenadas (inflacao, atividade).
+        
+        Quadrantes:
+        Q1 (Goldilocks): Alta atividade + Baixa inflação
+        Q2 (Reflação): Alta atividade + Alta inflação
+        Q3 (Estagflação): Baixa atividade + Alta inflação
+        Q4 (Deflação): Baixa atividade + Baixa inflação
+        
+        Args:
+            atividade: score de atividade econômica (eixo Y)
+            inflacao: score de inflação (eixo X)
+            
+        Returns:
+            str: Nome do quadrante
+        """
+        # TODO: Adicionar intensidade do sinal (forte/fraco) usando K-Means
+        if atividade > self.limiar_atividade:  # Atividade ALTA
+            if inflacao < self.limiar_inflacao:
+                return "Q1: GOLDILOCKS"
+            else:
+                return "Q2: REFLAÇÃO"
+        else:  # Atividade BAIXA
+            if inflacao >= self.limiar_inflacao:
+                return "Q3: ESTAGFLAÇÃO"
+            else:
+                return "Q4: DEFLAÇÃO/CONTRAÇÃO"
+    
+    def analisar(self, dic_r_ativos):
+        """
+        Executa análise completa: calcula proxies e identifica quadrante.
+        
+        Returns:
+            dict: Resultados da análise
+        """
+        atividade, inflacao = self.calcular_proxies(dic_r_ativos)
+        quadrante = self.identificar_quadrante(atividade, inflacao)
+        
+        return {
+            'quadrante': quadrante,
+            'coordenadas': (inflacao, atividade),
+            'inflacao_score': float(inflacao),
+            'atividade_score': float(atividade)
+        }
 
+
+def main():
+    """Executa classificação e exibe resultados."""
+    classificador = ClassificadorQuadrantes()
+    resultado = classificador.analisar(dic_r_ativos)
+    
+    print("\n" + "="*60)
+    print(" "*15 + "ANÁLISE DE REGIME MACROECONÔMICO")
+    print("="*60)
+    print(f"\n📊 Regime Identificado: {resultado['quadrante']}")
+    print(f"\n📈 Coordenadas (Inflação, Atividade): ({resultado['inflacao_score']:.3f}, {resultado['atividade_score']:.3f})")
+    print(f"   • Inflação Score: {resultado['inflacao_score']:.3f}")
+    print(f"   • Atividade Score: {resultado['atividade_score']:.3f}")
+    print("="*60 + "\n")
+    
+    return resultado
+
+
+if __name__ == "__main__":
+    resultado = main()
