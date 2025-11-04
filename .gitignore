@@ -1,3 +1,8 @@
-codigo_projeto\__pycache__
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data files
 data_prices.csv
-codigo_projeto\data_prices.csv
+**/data_prices.csv
