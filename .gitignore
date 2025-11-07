@@ -3,6 +3,13 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Virtual environment
+env/
+venv/
+ENV/
+.venv/
+*.env
+
 # Data files
 data_prices.csv
 **/data_prices.csv

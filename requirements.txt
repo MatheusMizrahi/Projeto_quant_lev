@@ -1,0 +1,15 @@
+# Dependências para análise quantitativa de tendências macroeconômicas
+# Para instalar: pip install -r requirements.txt
+
+# Análise de dados
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Download de dados financeiros
+yfinance>=0.2.0
+
+# Análise estatística e regressões
+statsmodels>=0.14.0
+
+# Dependências indiretas (geralmente instaladas automaticamente)
+scipy>=1.10.0

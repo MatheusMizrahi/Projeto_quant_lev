@@ -3,6 +3,7 @@ import pandas as pd
 import statsmodels.api as sm
 import numpy as np  # Importar numpy
 import warnings
+import time  # Adicionar import
 
 # Ignorar avisos
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -26,6 +27,8 @@ try:
     data_prices = yf.download(list(tickers.values()), 
                               start=start_date, 
                               end=end_date,
+                              threads=False,
+                              progress=False,
                               auto_adjust=False)['Adj Close']
     
     data_prices.columns = list(tickers.keys())
