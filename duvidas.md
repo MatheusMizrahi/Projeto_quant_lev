@@ -57,3 +57,8 @@ SP500 (35%) + MSCI_EM (25%) + HYG (25%) + US_10Y (10%) - DXY (5%)
 - [ ] Comparar com benchmarks (rolling sharpe, momentum simples)
 
 **Status:** ⚠️ Regressões implementadas, falta validação de robustez
+
+---
+
+### 4. Necessidade de pegar muitos dados para tomar a decisão
+**Pergunta:** Como vai funcionar a identificação de intensidade por K-means, não é necessário obter uma série temporal muito grande?
