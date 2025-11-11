@@ -10,6 +10,18 @@ ENV/
 .venv/
 *.env
 
-# Data files
+# Data files (CSV)
+*.csv
 data_prices.csv
+historico_quadrantes.csv
+temp_window.csv
 **/data_prices.csv
+
+# Output images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+evolucao_quadrantes.png
+
