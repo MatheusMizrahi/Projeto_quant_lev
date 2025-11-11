@@ -21,7 +21,9 @@ tickers = {
 }
 
 start_date = '2020-10-01'
-end_date = '2025-10-29' 
+end_date = pd.Timestamp.now().normalize()
+
+print(f"\nBaixando dados de {start_date} a {end_date}...\n")
 
 try:
     data_prices = yf.download(list(tickers.values()), 
