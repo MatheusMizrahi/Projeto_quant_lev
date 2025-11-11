@@ -12,15 +12,32 @@ print("Iniciando o script de análise de tendência...")
 
 # --- 1. Definição de Ativos e Coleta de Dados ---
 
+# tickers = {
+#     'SP500': '^GSPC',
+#     'DXY': 'DX-Y.NYB',
+#     'HighYield_ETF': 'HYG',
+#     'USD_BRL': 'BRL=X',
+#     'Oil_WTI': 'CL=F'
+# }
+
 tickers = {
-    'SP500': '^GSPC',
-    'DXY': 'DX-Y.NYB',
-    'HighYield_ETF': 'HYG',
-    'USD_BRL': 'BRL=X',
-    'Oil_WTI': 'CL=F'
+    # AÇÕES (Crescimento Econômico)
+    'SP500': '^GSPC',           # Ações desenvolvidas - USA
+    'MSCI_EM': 'EEM',           # Ações emergentes - Mundo
+    
+    # MOEDAS (Condições Monetárias)
+    'DXY': 'DX-Y.NYB',          # Índice do Dólar
+    
+    # BONDS (Taxas de Juros / Expectativas)
+    'US_10Y': '^TNX',           # Treasury 10 anos
+    'HighYield_ETF': 'HYG',     # High Yield Corporate Bonds
+    
+    # COMMODITIES (Inflação)
+    'Oil_WTI': 'CL=F',          # Petróleo
+    'Gold': 'GC=F'              # Ouro
 }
 
-start_date = '2020-10-01'
+start_date = '2016-01-01'
 end_date = pd.Timestamp.now().normalize()
 
 print(f"\nBaixando dados de {start_date} a {end_date}...\n")

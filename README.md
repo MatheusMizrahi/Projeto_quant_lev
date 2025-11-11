@@ -17,12 +17,37 @@ A metodologia parte de **tendências de preço em quatro classes de ativos** e e
 
 ### 1. 🧮 **Seleção de Ativos (Passo 1)**
 Definimos os proxies que representarão o comportamento de cada mercado global:
-- **Ações:** `S&P 500`
-- **Renda Fixa:** `T-Bill`, `TLT` ou `HYG`  
-- **Commodities:** `Petróleo (WTI)`
-- **Moedas:** `DXY (Dollar Index)`
+
+#### **Portfolio de Ativos Globais:**
+- **Ações Desenvolvidas:** `S&P 500 (^GSPC)`
+- **Ações Emergentes:** `MSCI Emerging Markets (EEM)`
+- **Renda Fixa Governamental:** `US Treasury 10Y (^TNX)`
+- **Renda Fixa Corporativa:** `High Yield ETF (HYG)`
+- **Moedas:** `DXY - Dollar Index (DX-Y.NYB)`
+- **Commodities Energéticas:** `Petróleo WTI (CL=F)`
+- **Commodities Metálicas:** `Ouro (GC=F)`
 
 > Esses ativos servem como termômetros dos principais vetores de risco: crescimento, inflação, política monetária e liquidez global.
+
+#### **Construção dos Índices Compostos:**
+
+```
+📊 INFLAÇÃO = 🛢️ Oil (40%) + 🟡 Gold (30%) + 📈 US10Y (20%) - 💵 DXY (10%)
+              ├─ Realizada (commodities)
+              ├─ Esperada (bonds)
+              └─ Contexto monetário (dólar)
+
+📈 ATIVIDADE = 📊 SP500 (35%) + 🌏 EM (25%) + 💳 HYG (25%) + 📈 US10Y (10%) - 💵 DXY (5%)
+               ├─ Crescimento desenvolvidos
+               ├─ Crescimento emergentes
+               ├─ Condições de crédito
+               └─ Ambiente monetário
+```
+
+**Lógica dos Pesos:**
+- **Inflação**: Petróleo domina (40%) por ser o driver principal de custos, seguido por Ouro (30%) como hedge tradicional
+- **Atividade**: SP500 lidera (35%) como proxy de crescimento desenvolvido, complementado por Emergentes (25%) e crédito corporativo (25%)
+- **Pesos Negativos**: DXY tem relação inversa (dólar forte → commodities caem → inflação baixa / crescimento EM fraco)
 
 ---
 
@@ -109,7 +134,7 @@ Por fim, as regras são testadas historicamente:
 
 #### **Fase 1: Coleta e Preparação de Dados**
 - ✅ **`dowload.py`**: Script de download automático de dados via yfinance
-  - Ativos: SP500, DXY, HighYield_ETF (HYG), USD_BRL, Oil_WTI
+  - Ativos Globais: SP500, MSCI EM, DXY, US 10Y, High Yield ETF, Oil WTI, Gold
   - Período: Out/2020 a Out/2025
   - Salvamento em CSV (`data_prices.csv`)
 
@@ -123,12 +148,12 @@ Por fim, as regras são testadas historicamente:
 
 #### **Fase 3: Classificação de Quadrantes**
 - ✅ **`Definicao_quadrante.py`**: Classe `ClassificadorQuadrantes`
-  - Cálculo de proxies compostas:
-    - **Inflação** = Oil_WTI (70%) + USD_BRL (30%)
-    - **Atividade** = SP500 (60%) + HighYield_ETF (40%)
+  - Cálculo de proxies compostas globais:
+    - **Inflação** = Oil_WTI (40%) + Gold (30%) + US_10Y (20%) - DXY (10%)
+    - **Atividade** = SP500 (35%) + MSCI_EM (25%) + HYG (25%) + US_10Y (10%) - DXY (5%)
   - Mapeamento em sistema de coordenadas (Inflação × Atividade)
   - Identificação automática dos 4 quadrantes macroeconômicos
-  - Limiares ajustáveis
+  - Limiares ajustáveis (fixos ou percentis históricos)
 
 ### 🚧 **Em desenvolvimento / Próximas etapas:**
 

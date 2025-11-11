@@ -30,15 +30,20 @@ class ClassificadorQuadrantes:
         # PROXY DE INFLAÇÃO (eixo X)
         # TODO: Testar outros pesos (ex: adicionar commodities diversas)
         inflacao_score = (
-            dic_r_ativos['Oil_WTI']['score'] * 0.7 +      # Commodities (forte indicador)
-            dic_r_ativos['USD_BRL']['score'] * 0.3        # Pressão cambial/importada
+            dic_r_ativos['Oil_WTI']['score'] * 0.40 +      # Petróleo = inflação energética
+            dic_r_ativos['Gold']['score'] * 0.30 +         # Ouro = expectativa inflação + safe haven
+            dic_r_ativos['US_10Y']['score'] * 0.20 +       # Taxa longa = expectativa inflação
+            dic_r_ativos['DXY']['score'] * -0.10           # Dólar forte = inflação baixa (inverso)
         )
         
         # PROXY DE ATIVIDADE ECONÔMICA (eixo Y)
         # TODO: Considerar adicionar peso negativo para DXY quando significativo
         atividade_score = (
-            dic_r_ativos['SP500']['score'] * 0.6 +        # Crescimento econômico
-            dic_r_ativos['HighYield_ETF']['score'] * 0.4  # Condições de crédito
+            dic_r_ativos['SP500']['score'] * 0.35 +        # Crescimento USA (economia #1)
+            dic_r_ativos['MSCI_EM']['score'] * 0.25 +      # Crescimento emergentes (motor global)
+            dic_r_ativos['HighYield_ETF']['score'] * 0.25 + # Condições de crédito corporativo
+            dic_r_ativos['US_10Y']['score'] * 0.10 +       # Expansão fiscal (taxa alta pode = crescimento)
+            dic_r_ativos['DXY']['score'] * -0.05           # Dólar forte = freio em emergentes
         )
         
         return atividade_score, inflacao_score
