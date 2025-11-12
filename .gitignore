@@ -18,10 +18,10 @@ temp_window.csv
 **/data_prices.csv
 
 # Output images
-*.png
+# *.png
 *.jpg
 *.jpeg
 *.gif
 *.svg
-evolucao_quadrantes.png
+# evolucao_quadrantes.png
 
