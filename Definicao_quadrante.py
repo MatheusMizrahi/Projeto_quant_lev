@@ -20,7 +20,7 @@ class ClassificadorQuadrantes:
         self.limiar_inflacao = limiar_inflacao
         self.limiar_atividade = limiar_atividade
     
-    def calcular_proxies(self, dic_r_ativos):
+    def calcular_proxies(self, dic_r_ativos): #função que calcula o scores de atividade econômica e inflação
         """
         Calcula índices compostos de Inflação e Atividade Econômica.
         
@@ -77,7 +77,7 @@ class ClassificadorQuadrantes:
             else:
                 return "Q4: DEFLAÇÃO/CONTRAÇÃO"
     
-    def analisar(self, dic_r_ativos):
+    def analisar(self, dic_r_ativos): #Calcula proxies e identifica o quadrante
         """
         Executa análise completa: calcula proxies e identifica quadrante.
         
