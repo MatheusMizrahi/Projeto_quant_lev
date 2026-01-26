@@ -19,8 +19,8 @@ from typing import Dict, Tuple
 
 import pandas as pd
 
-from Regressoes_lineares import dic_r_ativos
-from Definicao_quadrante import ClassificadorQuadrantes
+from Regressoes_lineares_2 import dic_r_ativos
+from Definicao_quadrante_3 import ClassificadorQuadrantes
 
 # Tipos básicos
 Regime = str          # exemplo: "Q1: GOLDILOCKS"

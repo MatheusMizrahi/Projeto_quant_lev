@@ -10,8 +10,8 @@ from pathlib import Path
 # Adicionar pasta raiz ao path para importar módulos
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from Regressoes_lineares import AnalisadorRegressao
-from Definicao_quadrante import ClassificadorQuadrantes
+from Regressoes_lineares_2 import AnalisadorRegressao
+from Definicao_quadrante_3 import ClassificadorQuadrantes
 
 
 class AnalisadorHistorico:

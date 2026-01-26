@@ -1,7 +1,7 @@
 
 import pandas as pd
 import numpy as np
-from Regressoes_lineares import dic_r_ativos
+from Regressoes_lineares_2 import dic_r_ativos
 
 
 class ClassificadorQuadrantes:

@@ -24,12 +24,40 @@ except ImportError:
 # ============================================================================
 # CONFIGURAÇÃO DOS PESOS POR REGIME (mesma lógica do trading_rule.py)
 # ============================================================================
+#ALOCAÇÃO INICIAL - 2°
+# ALOCACAO_POR_REGIME: Dict[str, Dict[str, float]] = {
+#     "Q1": {"SP500": 0.75, "US_10Y": 0.25},   # Goldilocks: Long bolsa, Short bonds
+#     "Q2": {"SP500": 0.40, "US_10Y": -0.60},   # Reflação: Long bolsa moderado, Short bonds
+#     "Q3": {"SP500": -0.50, "US_10Y": -0.50},  # Estagflação: Short ambos
+#     "Q4": {"SP500": -0.60, "US_10Y": 0.40},   # Deflação: Short bolsa, Long bonds
+# }
+
+#ALOCAÇÃO MARKET NEUTRAL - 3°
+# ALOCACAO_POR_REGIME: Dict[str, Dict[str, float]] = {
+#     "Q1": {"SP500": 0.60, "US_10Y": -0.60},   # Long ações, Short bonds (sem viés)
+#     "Q2": {"SP500": 0.40, "US_10Y": -0.40},   # Long moderado
+#     "Q3": {"SP500": -0.50, "US_10Y": 0.50},   # Short ações, Long bonds
+#     "Q4": {"SP500": -0.60, "US_10Y": 0.60},   # Short ações forte
+# }
+
+#ALOCAÇÃO LONG-ONLY BALANCEADO - 4°
+# ALOCACAO_POR_REGIME: Dict[str, Dict[str, float]] = {
+#     "Q1": {"SP500": 0.75, "US_10Y": 0.25},    # Risk-on
+#     "Q2": {"SP500": 0.60, "US_10Y": 0.40},    # Balanceado
+#     "Q3": {"SP500": 0.30, "US_10Y": 0.70},    # Risk-off
+#     "Q4": {"SP500": 0.40, "US_10Y": 0.60},    # Defensivo
+#     }
+
+
+#TATICAL COM VIÉS DIRECIONAL - 1°
 ALOCACAO_POR_REGIME: Dict[str, Dict[str, float]] = {
-    "Q1": {"SP500": 0.75, "US_10Y": 0.25},   # Goldilocks: Long bolsa, Short bonds
-    "Q2": {"SP500": 0.40, "US_10Y": -0.60},   # Reflação: Long bolsa moderado, Short bonds
-    "Q3": {"SP500": -0.50, "US_10Y": -0.50},  # Estagflação: Short ambos
-    "Q4": {"SP500": -0.60, "US_10Y": 0.40},   # Deflação: Short bolsa, Long bonds
-}
+    "Q1": {"SP500": 0.80, "US_10Y": 0.20},    # +100% (otimista)
+    "Q2": {"SP500": 0.50, "US_10Y": -0.10},   # +40% (cauteloso)
+    "Q3": {"SP500": -0.20, "US_10Y": 0.60},   # +40% (defensivo)
+    "Q4": {"SP500": -0.40, "US_10Y": 0.80},   # +40% (bonds)
+    }
+
+
 
 FATOR_INTENSIDADE: Dict[str, float] = {
     "forte": 1.0,
@@ -154,21 +182,14 @@ class Backtest:
         return retornos
     
     def calcular_benchmarks(self, retornos: pd.DataFrame) -> pd.DataFrame:
-        """Calcula retornos dos benchmarks: 60/40 e ERC (Risk Parity).
+        """Calcula retornos dos benchmarks: ERC (Risk Parity).
         
         Returns:
-            DataFrame com colunas: ret_60_40, ret_ERC
+            DataFrame com colunas: ret_ERC
         """
         benchmarks = pd.DataFrame(index=retornos.index)
         
-        # BENCHMARK 1: Portfolio 60/40 (estático)
-        # 60% SP500 + 40% Treasury 10Y
-        benchmarks["ret_60_40"] = (
-            0.60 * retornos["SP500"] + 
-            0.40 * retornos["US_10Y"]
-        )
-        
-        # BENCHMARK 2: ERC (Risk Parity) com rebalanceamento mensal
+        # BENCHMARK: ERC (Risk Parity) com rebalanceamento mensal
         # Pesos ajustados pela volatilidade inversa
         benchmarks["peso_SP500_ERC"] = np.nan
         benchmarks["peso_US10Y_ERC"] = np.nan
@@ -258,7 +279,6 @@ class Backtest:
         resultados = pd.DataFrame(index=self.precos.index)
         resultados["ret_SP500"] = retornos["SP500"]
         resultados["ret_US_10Y"] = retornos["US_10Y"]
-        resultados["ret_60_40"] = benchmarks["ret_60_40"]
         resultados["ret_ERC"] = benchmarks["ret_ERC"]
         
         # Inicializar colunas de posição
@@ -351,9 +371,6 @@ class Backtest:
         resultados["equity_estrategia"] = (
             (1 + resultados["ret_estrategia_liq"]).cumprod() * self.capital_inicial
         )
-        resultados["equity_60_40"] = (
-            (1 + resultados["ret_60_40"]).cumprod() * self.capital_inicial
-        )
         resultados["equity_ERC"] = (
             (1 + resultados["ret_ERC"]).cumprod() * self.capital_inicial
         )
@@ -429,7 +446,6 @@ class Backtest:
             "Estratégia": ("ret_estrategia_liq", "equity_estrategia"),
             "SP500 (B&H)": ("ret_SP500", "equity_SP500"),
             "Treasury 10Y (B&H)": ("ret_US_10Y", "equity_US_10Y"),
-            "60/40 Portfolio": ("ret_60_40", "equity_60_40"),
             "ERC (Risk Parity)": ("ret_ERC", "equity_ERC")
         }
         
@@ -460,7 +476,7 @@ class Backtest:
         df_metricas = pd.DataFrame(metricas).T
         
         # Reordenar para colocar estratégia primeiro
-        ordem = ["Estratégia", "SP500 (B&H)", "60/40 Portfolio", "ERC (Risk Parity)", "Treasury 10Y (B&H)"]
+        ordem = ["Estratégia", "SP500 (B&H)", "ERC (Risk Parity)", "Treasury 10Y (B&H)"]
         ordem_existente = [o for o in ordem if o in df_metricas.index]
         df_metricas = df_metricas.reindex(ordem_existente)
         
@@ -494,7 +510,7 @@ class Backtest:
         estrategia_dd = df_metricas.loc["Estratégia", "Max Drawdown"]
         
         # Comparar com cada benchmark
-        for bench in ["SP500 (B&H)", "60/40 Portfolio", "ERC (Risk Parity)"]:
+        for bench in ["SP500 (B&H)", "ERC (Risk Parity)", "Treasury 10Y (B&H)"]:
             if bench in df_metricas.index:
                 bench_sharpe = df_metricas.loc[bench, "Sharpe Ratio"]
                 bench_cagr = df_metricas.loc[bench, "CAGR"]
@@ -547,8 +563,8 @@ class Backtest:
         ax1 = axes[0, 0]
         ax1.plot(df.index, df["equity_estrategia"], label="Estratégia", linewidth=2.5, color="blue")
         ax1.plot(df.index, df["equity_SP500"], label="SP500", linewidth=1.5, alpha=0.8, color="green")
-        ax1.plot(df.index, df["equity_60_40"], label="60/40", linewidth=1.5, alpha=0.8, color="purple")
         ax1.plot(df.index, df["equity_ERC"], label="ERC (Risk Parity)", linewidth=1.5, alpha=0.8, color="orange")
+        ax1.plot(df.index, df["equity_US_10Y"], label="Treasury 10Y", linewidth=1.5, alpha=0.8, color="gray")
         ax1.set_title("Evolução do Patrimônio (Escala Log)")
         ax1.set_ylabel("Capital (R$)")
         ax1.legend(loc="upper left", fontsize=9)
@@ -601,7 +617,7 @@ class Backtest:
         metricas_todas = self.calcular_metricas()
         nomes = list(metricas_todas.keys())
         sharpes = [metricas_todas[nome]["Sharpe Ratio"] for nome in nomes]
-        cores = ["blue", "green", "purple", "orange", "gray"][:len(nomes)]
+        cores = ["blue", "green", "gray", "orange"][:len(nomes)]
         
         bars = ax6.barh(nomes, sharpes, color=cores, alpha=0.7, edgecolor="black")
         ax6.set_title("Comparação de Sharpe Ratios")
