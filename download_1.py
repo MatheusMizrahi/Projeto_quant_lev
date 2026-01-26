@@ -2,6 +2,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import warnings
+import time
 
 #Funções
 
@@ -74,14 +75,46 @@ end_date = pd.Timestamp.now().normalize()
 print(f"\nBaixando dados de {start_date} a {end_date}...\n")
 
 try:
-    data_prices = yf.download(list(tickers.values()), 
-                              start=start_date, 
-                              end=end_date,
-                              threads=False,
-                              progress=False,
-                              auto_adjust=False)['Adj Close']
-    data_prices_weekly = data_prices.resample('W-FRI').last()  # Sexta-feira
-    data_prices_weekly.columns = list(tickers.keys())
+    # Baixar em lotes para evitar rate limit
+    all_data = pd.DataFrame()
+    ticker_list = list(tickers.items())
+    batch_size = 5  # Baixar 5 tickers por vez
+    
+    for i in range(0, len(ticker_list), batch_size):
+        batch = ticker_list[i:i+batch_size]
+        batch_tickers = [t[1] for t in batch]
+        batch_names = [t[0] for t in batch]
+        
+        print(f"Baixando lote {i//batch_size + 1}/{(len(ticker_list)-1)//batch_size + 1}: {', '.join(batch_names)}...")
+        
+        batch_data = yf.download(batch_tickers, 
+                                start=start_date, 
+                                end=end_date,
+                                threads=False,
+                                progress=False,
+                                auto_adjust=False)['Adj Close']
+        
+        # Se for apenas 1 ticker, converter para DataFrame
+        if len(batch_tickers) == 1:
+            batch_data = pd.DataFrame({batch_tickers[0]: batch_data})
+        
+        # Renomear colunas
+        if len(batch_tickers) > 1:
+            batch_data.columns = batch_names
+        else:
+            batch_data.columns = [batch_names[0]]
+        
+        # Concatenar
+        if all_data.empty:
+            all_data = batch_data
+        else:
+            all_data = pd.concat([all_data, batch_data], axis=1)
+        
+        # Delay entre lotes
+        if i + batch_size < len(ticker_list):
+            time.sleep(2)  # Aguardar 2 segundos entre lotes
+    
+    data_prices_weekly = all_data.resample('W-FRI').last()  # Sexta-feira
     data_prices_weekly = validar_dados(data_prices_weekly)
 
     #Salvar dados em csv
