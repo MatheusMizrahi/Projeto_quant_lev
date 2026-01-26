@@ -1,9 +1,33 @@
 import yfinance as yf
 import pandas as pd
-import statsmodels.api as sm
-import numpy as np  # Importar numpy
+import numpy as np
 import warnings
-import time  # Adicionar import
+
+#Funções
+
+#Função validar_dados
+def validar_dados(df):
+    """Valida qualidade dos dados."""
+    # 1. Detectar gaps
+    gaps = df.isna().sum()
+    if gaps.any():
+        print(f"⚠️ Gaps detectados: {gaps[gaps > 0]}")
+        df = df.ffill().bfill()  # Forward-fill + backward-fill
+    
+    # 2. Detectar outliers (>5 sigma)
+    zscore = (df - df.mean()) / df.std()
+    outliers = (zscore.abs() > 5).sum()
+    if outliers.any():
+        print(f"⚠️ Outliers detectados: {outliers[outliers > 0]}")
+        # Winsorize extremos
+        df = df.clip(lower=df.quantile(0.01), upper=df.quantile(0.99), axis=1)
+    
+    # 3. Verificar correlações anômalas
+    corr = df.pct_change().corr()
+    if (corr > 0.95).sum().sum() > len(df.columns):
+        print("⚠️ Correlações suspeitas (>0.95) detectadas")
+    
+    return df
 
 # Ignorar avisos
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -20,24 +44,31 @@ print("Iniciando o script de análise de tendência...")
 #     'Oil_WTI': 'CL=F'
 # }
 
-tickers = {
-    # AÇÕES (Crescimento Econômico)
-    'SP500': '^GSPC',           # Ações desenvolvidas - USA
-    'MSCI_EM': 'EEM',           # Ações emergentes - Mundo
+tickers= {
+    # AÇÕES - Crescimento
+    'SP500': '^GSPC', 'MSCI_EM': 'EEM', 'Russell_2000': '^RUT',  # Small caps
+    'MSCI_EAFE': 'EFA',  # Desenvolvidos ex-US
     
-    # MOEDAS (Condições Monetárias)
-    'DXY': 'DX-Y.NYB',          # Índice do Dólar
+    # BONDS - Taxas/Expectativas
+    'US_10Y': '^TNX', 'US_2Y': '^IRX',  # Curva de juros
+    'TIP': 'TIP',  # TIPS (breakeven inflation)
+    'HighYield_ETF': 'HYG', 'BBB_Corp': 'LQD',  # Crédito
     
-    # BONDS (Taxas de Juros / Expectativas)
-    'US_10Y': '^TNX',           # Treasury 10 anos
-    'HighYield_ETF': 'HYG',     # High Yield Corporate Bonds
+    # MOEDAS - Condições Monetárias
+    'DXY': 'DX-Y.NYB', 'EUR_USD': 'EURUSD=X', 'JPY_USD': 'JPY=X',
     
-    # COMMODITIES (Inflação)
-    'Oil_WTI': 'CL=F',          # Petróleo
-    'Gold': 'GC=F'              # Ouro
+    # COMMODITIES - Inflação
+    'Oil_WTI': 'CL=F', 'Gold': 'GC=F', 'Copper': 'HG=F',  # Metais industriais
+    'CRB_Index': 'DBC',  # Basket de commodities
+    
+    # VOLATILIDADE - Risco
+    'VIX': '^VIX',  # Medo do mercado
+    'MOVE': '^MOVE',  # Vol de bonds
 }
 
-start_date = '2016-01-01'
+
+
+start_date = '2000-01-01'  # +16 anos = 2.5 ciclos completos
 end_date = pd.Timestamp.now().normalize()
 
 print(f"\nBaixando dados de {start_date} a {end_date}...\n")
@@ -49,20 +80,19 @@ try:
                               threads=False,
                               progress=False,
                               auto_adjust=False)['Adj Close']
-    
-    data_prices.columns = list(tickers.keys())
-    data_prices = data_prices.ffill()
-    data_prices = data_prices.dropna()
+    data_prices_weekly = data_prices.resample('W-FRI').last()  # Sexta-feira
+    data_prices_weekly.columns = list(tickers.keys())
+    data_prices_weekly = validar_dados(data_prices_weekly)
 
     #Salvar dados em csv
-    data_prices.to_csv('data_prices.csv')
+    data_prices_weekly.to_csv('data_prices.csv')
     print(f"\n✓ Dados salvos em 'data_prices.csv'")
     print(f"✓ Período: {start_date} a {end_date}")
-    print(f"✓ Total de dias: {len(data_prices)}")
+    print(f"✓ Total de dias: {len(data_prices_weekly) * 7}")
     print("\nPrimeiras linhas:")
-    print(data_prices.head())
+    print(data_prices_weekly.head())
     print("\nÚltimas linhas:")
-    print(data_prices.tail())
+    print(data_prices_weekly.tail())
 
   
 except Exception as e:
