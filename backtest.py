@@ -25,7 +25,7 @@ except ImportError:
 # CONFIGURAÇÃO DOS PESOS POR REGIME (mesma lógica do trading_rule.py)
 # ============================================================================
 ALOCACAO_POR_REGIME: Dict[str, Dict[str, float]] = {
-    "Q1": {"SP500": 0.70, "US_10Y": -0.30},   # Goldilocks: Long bolsa, Short bonds
+    "Q1": {"SP500": 0.75, "US_10Y": 0.25},   # Goldilocks: Long bolsa, Short bonds
     "Q2": {"SP500": 0.40, "US_10Y": -0.60},   # Reflação: Long bolsa moderado, Short bonds
     "Q3": {"SP500": -0.50, "US_10Y": -0.50},  # Estagflação: Short ambos
     "Q4": {"SP500": -0.60, "US_10Y": 0.40},   # Deflação: Short bolsa, Long bonds
@@ -71,11 +71,37 @@ class Backtest:
         arquivo_regimes: str = "historico_intensidade_12_simples.csv",
         capital_inicial: float = 100000.0,
         custo_transacao: float = 0.001,  # 0.1% por operação (10 bps)
+        rebalanceamento: str = "semanal",  # "semanal" ou "diario"
     ):
+        """Inicializa o backtest.
+        
+        TIMING DA ESTRATÉGIA:
+        =====================
+        1. CÁLCULO DO SINAL (Fim de semana):
+           - Sexta-feira após fechamento do mercado
+           - Análise dos dados da semana completa
+           - Determinação do regime (Q1/Q2/Q3/Q4) e intensidade
+        
+        2. EXECUÇÃO DO TRADE (Início da próxima semana):
+           - Segunda-feira na abertura do mercado
+           - Rebalanceamento para as novas posições
+           - Custos de transação aplicados
+        
+        3. MANUTENÇÃO (Durante a semana):
+           - Posições mantidas fixas até o próximo rebalanceamento
+           - SEM trades intra-semanais
+           - Retornos diários acumulados sobre as posições fixas
+        
+        Args:
+            rebalanceamento: Frequência de rebalanceamento
+                - "semanal": Trades apenas 1x por semana (RECOMENDADO)
+                - "diario": Rebalanceamento diário (maior custo)
+        """
         self.arquivo_precos = arquivo_precos
         self.arquivo_regimes = arquivo_regimes
         self.capital_inicial = capital_inicial
         self.custo_transacao = custo_transacao
+        self.rebalanceamento = rebalanceamento
         
         self.precos: pd.DataFrame = None
         self.regimes: pd.DataFrame = None
@@ -98,8 +124,22 @@ class Backtest:
         self.regimes = pd.read_csv(self.arquivo_regimes)
         self.regimes["data"] = pd.to_datetime(self.regimes["data"])
         self.regimes.set_index("data", inplace=True)
-        print(f"\n✓ Regimes carregados: {len(self.regimes)} registros")
-        print(f"  Período: {self.regimes.index.min().date()} a {self.regimes.index.max().date()}")
+
+        # ⚠️ CORREÇÃO DO LOOK-AHEAD BIAS
+        # Shiftar em 1 período: usamos o sinal da semana ANTERIOR
+        # Isso garante que só usamos informação disponível no momento do trade
+        print(f"\n✓ Regimes carregados: {len(self.regimes)} registros (antes do shift)")
+        print(f"  Período original: {self.regimes.index.min().date()} a {self.regimes.index.max().date()}")
+        
+        self.regimes = self.regimes.shift(1)
+        
+        # Remover a primeira linha (será NaN após shift)
+        self.regimes = self.regimes.dropna()
+        
+        print(f"\n⚠️ IMPORTANTE: Sinais shiftados em 1 período")
+        print(f"   → Sinal calculado no FIM da semana N")
+        print(f"   → Trade executado no INÍCIO da semana N+1")
+        print(f"  Período após shift: {self.regimes.index.min().date()} a {self.regimes.index.max().date()}")
         
         # Verificar se temos os ativos necessários
         ativos_necessarios = ["SP500", "US_10Y"]
@@ -113,6 +153,69 @@ class Backtest:
         retornos = self.precos[["SP500", "US_10Y"]].pct_change()
         return retornos
     
+    def calcular_benchmarks(self, retornos: pd.DataFrame) -> pd.DataFrame:
+        """Calcula retornos dos benchmarks: 60/40 e ERC (Risk Parity).
+        
+        Returns:
+            DataFrame com colunas: ret_60_40, ret_ERC
+        """
+        benchmarks = pd.DataFrame(index=retornos.index)
+        
+        # BENCHMARK 1: Portfolio 60/40 (estático)
+        # 60% SP500 + 40% Treasury 10Y
+        benchmarks["ret_60_40"] = (
+            0.60 * retornos["SP500"] + 
+            0.40 * retornos["US_10Y"]
+        )
+        
+        # BENCHMARK 2: ERC (Risk Parity) com rebalanceamento mensal
+        # Pesos ajustados pela volatilidade inversa
+        benchmarks["peso_SP500_ERC"] = np.nan
+        benchmarks["peso_US10Y_ERC"] = np.nan
+        benchmarks["ret_ERC"] = np.nan
+        
+        # Calcular pesos ERC mensalmente
+        janela_vol = 60  # 60 dias de histórico para calcular volatilidade
+        
+        for i in range(janela_vol, len(retornos)):
+            data = retornos.index[i]
+            
+            # Apenas recalcular no primeiro dia útil do mês (rebalanceamento mensal)
+            if i > janela_vol and data.month == retornos.index[i-1].month:
+                # Propagar pesos do dia anterior
+                benchmarks.loc[data, "peso_SP500_ERC"] = benchmarks.iloc[i-1]["peso_SP500_ERC"]
+                benchmarks.loc[data, "peso_US10Y_ERC"] = benchmarks.iloc[i-1]["peso_US10Y_ERC"]
+            else:
+                # Recalcular pesos (novo mês)
+                ret_historico = retornos.iloc[i-janela_vol:i]
+                vol_SP500 = ret_historico["SP500"].std() * np.sqrt(252)
+                vol_US10Y = ret_historico["US_10Y"].std() * np.sqrt(252)
+                
+                # Evitar divisão por zero
+                if vol_SP500 > 0 and vol_US10Y > 0:
+                    # Peso = inverso da volatilidade (normalizado)
+                    inv_vol_SP = 1 / vol_SP500
+                    inv_vol_US = 1 / vol_US10Y
+                    soma_inv_vol = inv_vol_SP + inv_vol_US
+                    
+                    peso_SP500_ERC = inv_vol_SP / soma_inv_vol
+                    peso_US10Y_ERC = inv_vol_US / soma_inv_vol
+                else:
+                    # Fallback para pesos iguais
+                    peso_SP500_ERC = 0.5
+                    peso_US10Y_ERC = 0.5
+                
+                benchmarks.loc[data, "peso_SP500_ERC"] = peso_SP500_ERC
+                benchmarks.loc[data, "peso_US10Y_ERC"] = peso_US10Y_ERC
+            
+            # Calcular retorno ERC do dia
+            benchmarks.loc[data, "ret_ERC"] = (
+                benchmarks.loc[data, "peso_SP500_ERC"] * retornos.loc[data, "SP500"] +
+                benchmarks.loc[data, "peso_US10Y_ERC"] * retornos.loc[data, "US_10Y"]
+            )
+        
+        return benchmarks
+    
     def obter_posicoes_regime(self, regime: str, intensidade: str) -> Dict[str, float]:
         """Calcula as posições baseadas no regime e intensidade."""
         codigo = extrair_codigo_regime(regime)
@@ -125,18 +228,38 @@ class Backtest:
         }
     
     def executar_backtest(self) -> pd.DataFrame:
-        """Executa o backtest completo."""
+        """Executa o backtest completo.
+        
+        LÓGICA DE REBALANCEAMENTO:
+        ==========================
+        SEMANAL (padrão):
+        - Trades executados apenas nas datas dos sinais (semanais)
+        - Posições mantidas fixas durante toda a semana
+        - Menor custo de transação
+        - Mais realista para estratégias macro
+        
+        DIÁRIO:
+        - Rebalanceamento diário baseado no último sinal semanal
+        - Maior custo de transação
+        - Útil para comparação ou estratégias mais ativas
+        """
         print("\n" + "=" * 60)
         print(" EXECUTANDO BACKTEST")
         print("=" * 60)
+        print(f"\n📊 Modo de rebalanceamento: {self.rebalanceamento.upper()}")
         
         # Calcular retornos diários
         retornos = self.calcular_retornos()
+        
+        # Calcular benchmarks
+        benchmarks = self.calcular_benchmarks(retornos)
         
         # Preparar DataFrame de resultados
         resultados = pd.DataFrame(index=self.precos.index)
         resultados["ret_SP500"] = retornos["SP500"]
         resultados["ret_US_10Y"] = retornos["US_10Y"]
+        resultados["ret_60_40"] = benchmarks["ret_60_40"]
+        resultados["ret_ERC"] = benchmarks["ret_ERC"]
         
         # Inicializar colunas de posição
         resultados["pos_SP500"] = 0.0
@@ -144,26 +267,46 @@ class Backtest:
         resultados["regime"] = ""
         resultados["intensidade"] = ""
         resultados["codigo_regime"] = ""
+        resultados["is_rebalance_day"] = False  # Marca dias de rebalanceamento
         
         # Preencher posições baseadas nos regimes
-        # Os regimes são semanais, então propagamos para todos os dias da semana
         regime_atual = None
         intensidade_atual = None
         pos_atual = {"SP500": 0.0, "US_10Y": 0.0}
         
-        for data in resultados.index:
-            # Verifica se há novo sinal de regime nesta data
-            if data in self.regimes.index:
-                regime_atual = self.regimes.loc[data, "quadrante"]
-                intensidade_atual = self.regimes.loc[data, "intensidade_12"]
-                pos_atual = self.obter_posicoes_regime(regime_atual, intensidade_atual)
-            
-            if regime_atual is not None:
-                resultados.loc[data, "regime"] = regime_atual
-                resultados.loc[data, "intensidade"] = intensidade_atual
-                resultados.loc[data, "codigo_regime"] = extrair_codigo_regime(regime_atual)
-                resultados.loc[data, "pos_SP500"] = pos_atual["SP500"]
-                resultados.loc[data, "pos_US_10Y"] = pos_atual["US_10Y"]
+        if self.rebalanceamento == "semanal":
+            # MODO SEMANAL: Trades apenas nas datas dos sinais
+            # Propagamos as posições até o próximo sinal
+            for data in resultados.index:
+                # Verifica se há novo sinal de regime nesta data
+                if data in self.regimes.index:
+                    regime_atual = self.regimes.loc[data, "quadrante"]
+                    intensidade_atual = self.regimes.loc[data, "intensidade_12"]
+                    pos_atual = self.obter_posicoes_regime(regime_atual, intensidade_atual)
+                    resultados.loc[data, "is_rebalance_day"] = True
+                
+                if regime_atual is not None:
+                    resultados.loc[data, "regime"] = regime_atual
+                    resultados.loc[data, "intensidade"] = intensidade_atual
+                    resultados.loc[data, "codigo_regime"] = extrair_codigo_regime(regime_atual)
+                    resultados.loc[data, "pos_SP500"] = pos_atual["SP500"]
+                    resultados.loc[data, "pos_US_10Y"] = pos_atual["US_10Y"]
+        
+        else:
+            # MODO DIÁRIO: Rebalanceamento diário (mantido por compatibilidade)
+            for data in resultados.index:
+                if data in self.regimes.index:
+                    regime_atual = self.regimes.loc[data, "quadrante"]
+                    intensidade_atual = self.regimes.loc[data, "intensidade_12"]
+                    pos_atual = self.obter_posicoes_regime(regime_atual, intensidade_atual)
+                
+                if regime_atual is not None:
+                    resultados.loc[data, "regime"] = regime_atual
+                    resultados.loc[data, "intensidade"] = intensidade_atual
+                    resultados.loc[data, "codigo_regime"] = extrair_codigo_regime(regime_atual)
+                    resultados.loc[data, "pos_SP500"] = pos_atual["SP500"]
+                    resultados.loc[data, "pos_US_10Y"] = pos_atual["US_10Y"]
+                    resultados.loc[data, "is_rebalance_day"] = True
         
         # Calcular retorno da estratégia
         # Retorno = soma dos (peso_ativo * retorno_ativo)
@@ -173,13 +316,31 @@ class Backtest:
         )
         
         # Detectar mudanças de posição para calcular custos
+        # Custos aplicados APENAS nos dias de rebalanceamento
         resultados["mudanca_SP500"] = resultados["pos_SP500"].diff().abs()
         resultados["mudanca_US_10Y"] = resultados["pos_US_10Y"].diff().abs()
-        resultados["custo_transacao"] = (
-            (resultados["mudanca_SP500"] + resultados["mudanca_US_10Y"]) * 
-            self.custo_transacao
-        )
+        
+        if self.rebalanceamento == "semanal":
+            # Custos apenas em dias de rebalanceamento
+            resultados["custo_transacao"] = 0.0
+            resultados.loc[resultados["is_rebalance_day"], "custo_transacao"] = (
+                (resultados.loc[resultados["is_rebalance_day"], "mudanca_SP500"] + 
+                 resultados.loc[resultados["is_rebalance_day"], "mudanca_US_10Y"]) * 
+                self.custo_transacao
+            )
+        else:
+            # Custos aplicados em todos os dias (modo diário)
+            resultados["custo_transacao"] = (
+                (resultados["mudanca_SP500"] + resultados["mudanca_US_10Y"]) * 
+                self.custo_transacao
+            )
+        
         resultados["custo_transacao"] = resultados["custo_transacao"].fillna(0)
+        
+        # Contar número de trades
+        num_trades = (resultados["custo_transacao"] > 0).sum()
+        print(f"\n📊 Número de rebalanceamentos: {num_trades}")
+        print(f"   Custo total de transação: {resultados['custo_transacao'].sum():.4%}")
         
         # Retorno líquido (após custos)
         resultados["ret_estrategia_liq"] = (
@@ -189,6 +350,12 @@ class Backtest:
         # Calcular retorno acumulado (equity curve)
         resultados["equity_estrategia"] = (
             (1 + resultados["ret_estrategia_liq"]).cumprod() * self.capital_inicial
+        )
+        resultados["equity_60_40"] = (
+            (1 + resultados["ret_60_40"]).cumprod() * self.capital_inicial
+        )
+        resultados["equity_ERC"] = (
+            (1 + resultados["ret_ERC"]).cumprod() * self.capital_inicial
         )
         resultados["equity_SP500"] = (
             (1 + resultados["ret_SP500"]).cumprod() * self.capital_inicial
@@ -209,6 +376,10 @@ class Backtest:
         print(f"\n✓ Backtest executado com sucesso!")
         print(f"  Período: {resultados.index.min().date()} a {resultados.index.max().date()}")
         print(f"  Total de dias: {len(resultados)}")
+        print(f"  Dias de trading: {(resultados['regime'] != '').sum()}")
+        if self.rebalanceamento == "semanal":
+            print(f"  Rebalanceamentos: {resultados['is_rebalance_day'].sum()}")
+            print(f"\n💡 Estratégia semanal: posições mantidas por ~5 dias úteis")
         
         return resultados
     
@@ -258,6 +429,8 @@ class Backtest:
             "Estratégia": ("ret_estrategia_liq", "equity_estrategia"),
             "SP500 (B&H)": ("ret_SP500", "equity_SP500"),
             "Treasury 10Y (B&H)": ("ret_US_10Y", "equity_US_10Y"),
+            "60/40 Portfolio": ("ret_60_40", "equity_60_40"),
+            "ERC (Risk Parity)": ("ret_ERC", "equity_ERC")
         }
         
         for nome, (col_ret, col_equity) in estrategias.items():
@@ -280,11 +453,16 @@ class Backtest:
     def imprimir_metricas(self, metricas: Dict) -> None:
         """Imprime as métricas de forma formatada."""
         print("\n" + "=" * 80)
-        print(" MÉTRICAS DE PERFORMANCE")
+        print(" MÉTRICAS DE PERFORMANCE - COMPARAÇÃO COM BENCHMARKS")
         print("=" * 80)
         
         # Criar DataFrame para exibição
         df_metricas = pd.DataFrame(metricas).T
+        
+        # Reordenar para colocar estratégia primeiro
+        ordem = ["Estratégia", "SP500 (B&H)", "60/40 Portfolio", "ERC (Risk Parity)", "Treasury 10Y (B&H)"]
+        ordem_existente = [o for o in ordem if o in df_metricas.index]
+        df_metricas = df_metricas.reindex(ordem_existente)
         
         # Formatar valores
         formatters = {
@@ -302,7 +480,34 @@ class Backtest:
             print(f"\n{metrica}:")
             for estrategia in df_metricas.index:
                 valor = df_metricas.loc[estrategia, metrica]
-                print(f"  {estrategia:20} : {fmt.format(valor)}")
+                # Destacar estratégia principal
+                prefix = "►" if estrategia == "Estratégia" else " "
+                print(f"  {prefix} {estrategia:25} : {fmt.format(valor)}")
+        
+        # Análise comparativa
+        print("\n" + "=" * 80)
+        print(" ANÁLISE COMPARATIVA")
+        print("=" * 80)
+        
+        estrategia_sharpe = df_metricas.loc["Estratégia", "Sharpe Ratio"]
+        estrategia_cagr = df_metricas.loc["Estratégia", "CAGR"]
+        estrategia_dd = df_metricas.loc["Estratégia", "Max Drawdown"]
+        
+        # Comparar com cada benchmark
+        for bench in ["SP500 (B&H)", "60/40 Portfolio", "ERC (Risk Parity)"]:
+            if bench in df_metricas.index:
+                bench_sharpe = df_metricas.loc[bench, "Sharpe Ratio"]
+                bench_cagr = df_metricas.loc[bench, "CAGR"]
+                bench_dd = df_metricas.loc[bench, "Max Drawdown"]
+                
+                diff_sharpe = estrategia_sharpe - bench_sharpe
+                diff_cagr = estrategia_cagr - bench_cagr
+                diff_dd = estrategia_dd - bench_dd
+                
+                print(f"\nvs {bench}:")
+                print(f"  Sharpe:  {diff_sharpe:+.2f} {'✅ Melhor' if diff_sharpe > 0 else '❌ Pior'}")
+                print(f"  CAGR:    {diff_cagr:+.2%} {'✅ Melhor' if diff_cagr > 0 else '❌ Pior'}")
+                print(f"  DrawDown: {diff_dd:+.2%} {'✅ Menor' if diff_dd > 0 else '❌ Maior'}")
     
     def analisar_por_regime(self) -> pd.DataFrame:
         """Analisa a performance por regime."""
@@ -338,14 +543,15 @@ class Backtest:
         fig, axes = plt.subplots(3, 2, figsize=(16, 14))
         fig.suptitle("Backtest: Estratégia SP500 vs Treasury 10Y", fontsize=14, fontweight="bold")
         
-        # 1. Equity Curves
+        # 1. Equity Curves com Benchmarks
         ax1 = axes[0, 0]
-        ax1.plot(df.index, df["equity_estrategia"], label="Estratégia", linewidth=2, color="blue")
-        ax1.plot(df.index, df["equity_SP500"], label="SP500 (B&H)", linewidth=1, alpha=0.7, color="green")
-        ax1.plot(df.index, df["equity_US_10Y"], label="Treasury 10Y (B&H)", linewidth=1, alpha=0.7, color="orange")
-        ax1.set_title("Evolução do Patrimônio")
+        ax1.plot(df.index, df["equity_estrategia"], label="Estratégia", linewidth=2.5, color="blue")
+        ax1.plot(df.index, df["equity_SP500"], label="SP500", linewidth=1.5, alpha=0.8, color="green")
+        ax1.plot(df.index, df["equity_60_40"], label="60/40", linewidth=1.5, alpha=0.8, color="purple")
+        ax1.plot(df.index, df["equity_ERC"], label="ERC (Risk Parity)", linewidth=1.5, alpha=0.8, color="orange")
+        ax1.set_title("Evolução do Patrimônio (Escala Log)")
         ax1.set_ylabel("Capital (R$)")
-        ax1.legend(loc="upper left")
+        ax1.legend(loc="upper left", fontsize=9)
         ax1.grid(True, alpha=0.3)
         ax1.set_yscale("log")
         
@@ -381,7 +587,7 @@ class Backtest:
         
         # 5. Retornos mensais da estratégia
         ax5 = axes[2, 0]
-        ret_mensal = df["ret_estrategia_liq"].resample("ME").apply(
+        ret_mensal = df["ret_estrategia_liq"].resample("M").apply(
             lambda x: (1 + x).prod() - 1
         )
         colors_ret = ["green" if r > 0 else "red" for r in ret_mensal]
@@ -390,24 +596,22 @@ class Backtest:
         ax5.set_ylabel("Retorno (%)")
         ax5.grid(True, alpha=0.3, axis="y")
         
-        # 6. Performance por regime
+        # 6. Comparação de Sharpe Ratios
         ax6 = axes[2, 1]
-        analise = self.analisar_por_regime()
-        x = range(len(analise))
-        width = 0.25
-        ax6.bar([i - width for i in x], analise["Ret Médio Estratégia (anual)"], 
-                width, label="Estratégia", color="blue")
-        ax6.bar([i for i in x], analise["Ret Médio SP500"] * 252, 
-                width, label="SP500", color="green")
-        ax6.bar([i + width for i in x], analise["Ret Médio US10Y"] * 252, 
-                width, label="Treasury", color="orange")
-        ax6.set_xticks(x)
-        ax6.set_xticklabels(analise.index)
-        ax6.set_title("Retorno Médio Anualizado por Regime")
-        ax6.set_ylabel("Retorno (%)")
-        ax6.legend()
-        ax6.axhline(y=0, color="black", linestyle="--", linewidth=0.5)
-        ax6.grid(True, alpha=0.3, axis="y")
+        metricas_todas = self.calcular_metricas()
+        nomes = list(metricas_todas.keys())
+        sharpes = [metricas_todas[nome]["Sharpe Ratio"] for nome in nomes]
+        cores = ["blue", "green", "purple", "orange", "gray"][:len(nomes)]
+        
+        bars = ax6.barh(nomes, sharpes, color=cores, alpha=0.7, edgecolor="black")
+        ax6.set_title("Comparação de Sharpe Ratios")
+        ax6.set_xlabel("Sharpe Ratio")
+        ax6.axvline(x=0, color="black", linestyle="--", linewidth=0.5)
+        ax6.grid(True, alpha=0.3, axis="x")
+        
+        # Adicionar valores nas barras
+        for i, (bar, valor) in enumerate(zip(bars, sharpes)):
+            ax6.text(valor + 0.05, i, f"{valor:.2f}", va="center", fontsize=9)
         
         plt.tight_layout()
         
@@ -552,6 +756,7 @@ def main():
     print("\n" + "=" * 60)
     print(" BACKTEST - ESTRATÉGIA SP500 vs TREASURY 10Y")
     print(" Período: 2016 - Presente")
+    print(" Timing: Sinais semanais, execução no início da próxima semana")
     print("=" * 60)
     
     # Criar e configurar backtest
@@ -560,6 +765,7 @@ def main():
         arquivo_regimes="historico_intensidade_12_simples.csv",
         capital_inicial=100000.0,
         custo_transacao=0.001,  # 10 bps por operação
+        rebalanceamento="semanal",  # Rebalanceamento semanal (mais realista)
     )
     
     # Carregar dados

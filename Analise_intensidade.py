@@ -45,7 +45,7 @@ def treinar_kmeans_simples(features, k=3):
     kmeans = KMeans(n_clusters=k, random_state=42, n_init=10, max_iter=300)
     labels = kmeans.fit_predict(X) # fit == encontrar as centróides dos k clusters + predict == atribuir o ponto ao cluster do centróide mais próximo (retorna um array com o cluster de cada obs (em números 0,1,2))
 
-    sil = silhouette_score(X, labels) #função que calcula a qualidade do clustering do agrupamento realizado pelo k means (1== clusters bem separados, 0 == clusters mal separados)
+    sil = silhouette_score(X, labels) #função que calcula a qualidade do clustering, do agrupamento realizado pelo k means, (1== clusters bem separados, 0 == clusters mal separados)
     print(f"\n✅ Treinado KMeans simples (K={k})")
     print(f"   • Silhouette Score: {sil:.3f}")
 
