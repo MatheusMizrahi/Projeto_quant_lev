@@ -1,7 +1,7 @@
 
 import pandas as pd
 import numpy as np
-from Regressoes_lineares_2 import dic_r_ativos
+from Regressoes_lineares_2 import AnalisadorMomentum
 
 
 class ClassificadorQuadrantes:
@@ -97,6 +97,10 @@ class ClassificadorQuadrantes:
 
 def main():
     """Executa classificação e exibe resultados."""
+    # Executar análise de momentum primeiro
+    analisador = AnalisadorMomentum(verbose=False)
+    dic_r_ativos = analisador.executar_analise_completa()
+    
     classificador = ClassificadorQuadrantes()
     resultado = classificador.analisar(dic_r_ativos)
     
