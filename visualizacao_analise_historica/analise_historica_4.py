@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from Regressoes_lineares_2 import AnalisadorRegressao, AnalisadorMomentum
 from Definicao_quadrante_3 import ClassificadorQuadrantes
+from Definicao_quadrante_3_CALIBRADO import ClassificadorQuadrantesCalibrado
 
 
 class AnalisadorHistorico:
@@ -19,7 +20,7 @@ class AnalisadorHistorico:
     Roda análise de quadrantes para múltiplos períodos históricos.
     """
     
-    def __init__(self, janela_obs=52, passo_obs=1, verbose=True):
+    def __init__(self, janela_obs=52, passo_obs=1, verbose=True, versao='v3'):
         """
         Args:
             janela_obs: número de observações (linhas) para cada janela.
@@ -29,11 +30,17 @@ class AnalisadorHistorico:
                        1=toda semana, 4=mensal, 13=trimestral
                        Padrão: 1 (análise semanal)
             verbose: Se True, imprime mensagens de diagnóstico
+            versao: Versão do classificador a usar:
+                   'v1' = Original (pesos 0.4/0.3/0.2 + thresholds 0.5/0.3)
+                   'v2' = Calibrado (pesos 0.45/0.25/0.20 + thresholds 0/0)
+                   'v3' = Calibrado + Percentis (pesos 0.45/0.25/0.20 + thresholds adaptativos)
         """
         self.janela_obs = janela_obs
         self.passo_obs = passo_obs
         self.verbose = verbose
+        self.versao = versao
         self.historico_quadrantes = []
+        print(versao)
     
     def carregar_dados_completos(self):
         """Carrega todos os dados históricos."""
@@ -81,8 +88,27 @@ class AnalisadorHistorico:
                     print(f"⚠️  Janela {data_fim.strftime('%Y-%m-%d')}: dic_r_ativos vazio")
                 return None
             
-            # Classificar quadrante
-            classificador = ClassificadorQuadrantes()
+            # Classificar quadrante (escolher versão)
+            if self.versao == 'v1':
+                # V1: Original (pesos arbitrários + thresholds fixos 0.5/0.3)
+                classificador = ClassificadorQuadrantes(
+                    limiar_inflacao=0.5,
+                    limiar_atividade=0.3
+                )
+            elif self.versao == 'v2':
+                # V2: Calibrado com thresholds fixos (0, 0)
+                classificador = ClassificadorQuadrantesCalibrado(
+                    usar_percentis=False,
+                    limiar_inflacao_fixo=0.0,
+                    limiar_atividade_fixo=0.0
+                )
+            else:  # v3 (padrão)
+                # V3: Calibrado com thresholds adaptativos (percentis)
+                classificador = ClassificadorQuadrantesCalibrado(
+                    usar_percentis=True,
+                    percentil_limiar=50
+                )
+            
             resultado = classificador.analisar(dic_r_ativos)
             
             # Adicionar data (usar última data da janela)
@@ -100,7 +126,14 @@ class AnalisadorHistorico:
         """
         Analisa todos os períodos históricos com step de passo_obs.
         """
+        versao_nome = {
+            'v1': 'V1 - Original (pesos 0.4/0.3/0.2 + thresholds 0.5/0.3)',
+            'v2': 'V2 - Calibrado (pesos 0.45/0.25/0.20 + thresholds 0/0)',
+            'v3': 'V3 - Calibrado + Percentis (pesos 0.45/0.25/0.20 + adaptativos)'
+        }
+        
         print(f"\n🔄 Iniciando análise histórica...")
+        print(f"   Versão: {versao_nome.get(self.versao, self.versao)}")
         print(f"   Janela: {self.janela_obs} observações (~{self.janela_obs} semanas = {self.janela_obs/52:.1f} anos)")
         print(f"   Passo: {self.passo_obs} observações")
         
@@ -178,18 +211,32 @@ class AnalisadorHistorico:
     
     def salvar_resultados(self, df):
         """Salva resultados em CSV."""
-        # Salvar na pasta raiz do projeto
-        caminho_saida = Path(__file__).parent.parent / 'historico_quadrantes.csv'
+        # Salvar na pasta raiz do projeto com sufixo da versão
+        nome_arquivo = f'historico_quadrantes_{self.versao}.csv'
+        caminho_saida = Path(__file__).parent.parent / nome_arquivo
         df.to_csv(caminho_saida, index=False)
-        print(f"✓ Resultados salvos em 'historico_quadrantes.csv'\n")
+        print(f"✓ Resultados salvos em '{nome_arquivo}'\n")
 
 
 def main():
     """Executa análise histórica completa."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Análise Histórica de Regimes')
+    parser.add_argument('--versao', type=str, default='v3', choices=['v1', 'v2', 'v3'],
+                       help='Versão do classificador: v1=Original, v2=Calibrado (padrão), v3=Calibrado+Percentis')
+    parser.add_argument('--janela', type=int, default=52,
+                       help='Janela de observações (padrão: 52 semanas = 1 ano)')
+    parser.add_argument('--passo', type=int, default=1,
+                       help='Passo entre análises (padrão: 1 = semanal)')
+    
+    args = parser.parse_args()
+    
     # Criar analisador
     analisador = AnalisadorHistorico(
-        janela_obs=52,   # 52 semanas = ~1 ano (bom para momentum 12m)
-        passo_obs=1      # Análise a cada semana (rolling window)
+        janela_obs=args.janela,
+        passo_obs=args.passo,
+        versao=args.versao
     )
     
     # Carregar dados

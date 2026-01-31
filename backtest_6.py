@@ -778,7 +778,7 @@ def main():
     # Criar e configurar backtest
     bt = Backtest(
         arquivo_precos="data_prices.csv",
-        arquivo_regimes="historico_intensidade_12_simples.csv",
+        arquivo_regimes="historico_intensidade_12_simples_v3.csv",
         capital_inicial=100000.0,
         custo_transacao=0.001,  # 10 bps por operação
         rebalanceamento="semanal",  # Rebalanceamento semanal (mais realista)
