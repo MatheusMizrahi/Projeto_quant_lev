@@ -49,12 +49,12 @@ except ImportError:
 #     }
 
 
-#TATICAL COM VIÉS DIRECIONAL - 1°
+#LONG-ONLY DEFENSIVO CALIBRADO - NOVO
 ALOCACAO_POR_REGIME: Dict[str, Dict[str, float]] = {
-    "Q1": {"SP500": 0.80, "US_10Y": 0.20},    # +100% (otimista)
-    "Q2": {"SP500": 0.50, "US_10Y": -0.10},   # +40% (cauteloso)
-    "Q3": {"SP500": -0.20, "US_10Y": 0.60},   # +40% (defensivo)
-    "Q4": {"SP500": -0.40, "US_10Y": 0.80},   # +40% (bonds)
+    "Q1": {"SP500": 0.70, "US_10Y": 0.30},    # +100% (risk-on controlado)
+    "Q2": {"SP500": 0.60, "US_10Y": 0.40},    # +100% (ambos sobem em reflação!)
+    "Q3": {"SP500": 0.30, "US_10Y": 0.70},    # +100% (defensivo)
+    "Q4": {"SP500": 0.20, "US_10Y": 0.80},    # +100% (bonds heavy)
     }
 
 
@@ -778,7 +778,7 @@ def main():
     # Criar e configurar backtest
     bt = Backtest(
         arquivo_precos="data_prices.csv",
-        arquivo_regimes="historico_intensidade_12_simples_v3.csv",
+        arquivo_regimes="historico_intensidade_12_simples_v2.csv",
         capital_inicial=100000.0,
         custo_transacao=0.001,  # 10 bps por operação
         rebalanceamento="semanal",  # Rebalanceamento semanal (mais realista)

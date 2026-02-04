@@ -68,11 +68,15 @@ class ClassificadorQuadrantesCalibrado:
         'US_10Y': 0.10,      # Taxa longa = fiscal stimulus proxy
         'DXY': -0.05          # Dólar = -10% efeito em trade balance × 0.5 correlação
     }
+
+    
+
+    
     
     def __init__(self, 
                  usar_percentis=True,
                  percentil_limiar=50,
-                 suavizacao_span=5,
+                 suavizacao_span=1,
                  limiar_inflacao_fixo=0.0,
                  limiar_atividade_fixo=0.0):
         """
@@ -174,14 +178,17 @@ class ClassificadorQuadrantesCalibrado:
         Q2 (Reflação): Alta atividade + Alta inflação
         Q3 (Estagflação): Baixa atividade + Alta inflação
         Q4 (Deflação): Baixa atividade + Baixa inflação
+        
+        ⚠️ LÓGICA INVERTIDA: Após diagnóstico descobriu-se que scores altos indicam
+        regimes RUINS (mean reversion). Portanto invertemos os operadores.
         """
-        if atividade > limiar_ativ:
-            if inflacao < limiar_infl:
+        if atividade < limiar_ativ:  # INVERTIDO: baixo score = alta atividade futura
+            if inflacao > limiar_infl:  # INVERTIDO: alto score inflação = baixa inflação futura
                 return "Q1: GOLDILOCKS"
             else:
                 return "Q2: REFLAÇÃO"
         else:
-            if inflacao >= limiar_infl:
+            if inflacao <= limiar_infl:  # INVERTIDO
                 return "Q3: ESTAGFLAÇÃO"
             else:
                 return "Q4: DEFLAÇÃO/CONTRAÇÃO"

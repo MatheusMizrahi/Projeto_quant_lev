@@ -20,7 +20,7 @@ class AnalisadorHistorico:
     Roda análise de quadrantes para múltiplos períodos históricos.
     """
     
-    def __init__(self, janela_obs=52, passo_obs=1, verbose=True, versao='v3'):
+    def __init__(self, janela_obs=52, passo_obs=1, verbose=True, versao='v2'):
         """
         Args:
             janela_obs: número de observações (linhas) para cada janela.
@@ -223,7 +223,7 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description='Análise Histórica de Regimes')
-    parser.add_argument('--versao', type=str, default='v3', choices=['v1', 'v2', 'v3'],
+    parser.add_argument('--versao', type=str, default='v2', choices=['v1', 'v2', 'v3'],
                        help='Versão do classificador: v1=Original, v2=Calibrado (padrão), v3=Calibrado+Percentis')
     parser.add_argument('--janela', type=int, default=52,
                        help='Janela de observações (padrão: 52 semanas = 1 ano)')

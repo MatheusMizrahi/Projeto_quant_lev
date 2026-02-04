@@ -19,7 +19,7 @@ from sklearn.metrics import silhouette_score
 import matplotlib.pyplot as plt
 
 
-def carregar_historico(path_csv='historico_quadrantes_v3.csv'):
+def carregar_historico(path_csv='historico_quadrantes_v2.csv'):
     try:
         df = pd.read_csv(path_csv, parse_dates=['data'])
         print(f"✓ {len(df)} observações carregadas de '{path_csv}'")
@@ -226,7 +226,7 @@ def main():
     out = df.copy()
     out['cluster_12'] = labels12
     out['intensidade_12'] = intensidades12
-    out.to_csv('historico_intensidade_12_simples_v3.csv', index=False)
+    out.to_csv('historico_intensidade_12_simples_v2.csv', index=False)
     print("\n💾 Resultados salvos em 'historico_intensidade_12_simples.csv'")
 
     print("\n✅ Concluído.")
