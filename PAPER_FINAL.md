@@ -31,7 +31,7 @@ A literatura de regime-switching (Ang & Bekaert, 2002; Kritzman et al., 2012) de
 
 ### 2.1 Modelo de Quadrantes Macroeconômicos
 
-Baseado em Dalio (1996) e Bridgewater’s All Weather, o ambiente macro é definido por dois vetores ortogonais:
+Baseado em Dalio (1996) e Bridgewater's All Weather, o ambiente macro é definido por dois vetores ortogonais:
 
 *   **Eixo 1 - Inflação:** Expectativas de pressão inflacionária.
 *   **Eixo 2 - Atividade Econômica:** Crescimento e demanda agregada.
@@ -105,6 +105,12 @@ Aplicamos K-Means no espaço 2D (Inflação × Atividade) para segmentar observa
 
 **Interpretação crítica:** A distribuição observada, com Q4 dominante, reflete períodos de crise, mas pode mascarar a dinâmica em mercados de alta.
 
+![Figura 1: Distribuição dos Regimes ao longo do período 2000-2025](distribuicao_regimes.png)
+
+**Figura 1:** Distribuição dos regimes macroeconômicos classificados no período analisado. O gráfico de barras confirma visualmente a dominância do regime Q4 (Deflação/Contração) com mais de 700 dias dos ~1.350 analisados, seguido por Q2 (Reflação, ~250 dias), Q1 (Goldilocks, ~150 dias) e Q3 (Stagflação, ~150 dias). Esta concentração em Q4 reflete a prevalência de períodos de crise e incerteza nas últimas duas décadas, incluindo as crises de 2008 e 2020.
+
+---
+
 ### 4.2 Performance Comparativa
 
 **Métricas Risk-Adjusted (2000-2025):**
@@ -120,10 +126,32 @@ Aplicamos K-Means no espaço 2D (Inflação × Atividade) para segmentar observa
 *   ERC Risk Parity (0.62): Estratégia defensiva sofisticada com melhor Sharpe.
 *   Treasury 10Y (0.22): Pior desempenho (bonds tiveram década ruim 2010-2020).
 
+![Figura 2: Evolução do Patrimônio (Escala Logarítmica)](evolucao_patrimonio.png)
+
+**Figura 2:** Evolução comparativa do patrimônio em escala logarítmica entre a Estratégia TAA (azul escuro), S&P 500 Buy-and-Hold (verde), ERC Risk Parity (laranja) e Treasury 10Y (amarelo). A escala logarítmica permite visualizar comparações proporcionais de retornos ao longo de diferentes magnitudes de capital. Nota-se que a estratégia TAA underperforma consistentemente o S&P 500 ao longo de praticamente todo o período, oscilando entre o desempenho do ERC Risk Parity e o Treasury 10Y, com períodos de convergência e divergência.
+
+![Figura 3: Comparação de Sharpe Ratios entre Estratégias](comparacao_sharpe.png)
+
+**Figura 3:** Comparação visual dos Sharpe Ratios das quatro estratégias analisadas. O S&P 500 Buy-and-Hold domina claramente com Sharpe de 0.98, seguido pelo ERC Risk Parity (0.62), a estratégia TAA proposta (0.47) e Treasury 10Y (0.22). A diferença de ~52% no Sharpe entre a estratégia TAA e o buy-and-hold representa o resultado central deste estudo, evidenciando as dificuldades de implementação prática de estratégias de timing tático.
+
+![Figura 4: Alocação Dinâmica dos Ativos](alocacao_ativos.png)
+
+**Figura 4:** Evolução temporal da alocação entre S&P 500 (azul) e Treasury 10Y (amarelo) ao longo do período. O gráfico evidencia o rebalanceamento frequente da estratégia, com alternância constante entre os dois ativos, resultando em turnover anual de aproximadamente 180%. Esta alta frequência de rebalanceamento é um dos principais fatores de custo implícito que penalizam a performance da estratégia, conforme discutido na análise de custos de transação.
+
 **Interpretação Crítica:**
 A estratégia underperformou significativamente o buy-and-hold do S&P 500 (Sharpe 0.47 vs 0.98), resultado oposto à hipótese inicial. Proteção em crashes foi relativamente superior ao B&H do S&P500, porém desempenhou abaixo de ERC Risk Parity. Drawdown máximo esperado da estratégia era de 30%, evidenciando possíveis problemas estruturais do modelo. Além disso, vale ressaltar os custos que foram abaixo da realidade: 10bps = 1.8% a.a., ao invés de 20-25 bps = 3.6% a.a. Por fim, não conseguiu realizar a captura do upside adequadamente, ex: Bull markets 2009-2019 (SP500 +300%), o que indica a presença de um viés defensivo excessivo.
 
+![Figura 5: Distribuição de Retornos Mensais da Estratégia](retornos_mensais.png)
+
+**Figura 5:** Histograma dos retornos mensais da estratégia TAA ao longo do período analisado. A distribuição apresenta formato relativamente simétrico, confirmando a ausência de fat tails positivas significativas. Este padrão indica que a estratégia não captura retornos extremos favoráveis (right tail), um dos fatores que penalizam o Sharpe Ratio acumulado. A dispersão observada reflete a volatilidade inerente às decisões táticas de alocação baseadas em regimes macroeconômicos.
+
+---
+
 ### 4.3 Análise de Eventos Extremos
+
+![Figura 6: Drawdown da Estratégia ao Longo do Tempo](drawdown_estrategia.png)
+
+**Figura 6:** Evolução temporal do drawdown (queda percentual em relação ao pico anterior) da estratégia TAA. O gráfico evidencia os vales mais profundos (~-45%) que coincidem com períodos críticos como a crise de 2008 e o período 2015-2016, confirmando a proteção insuficiente da estratégia em eventos de cauda. A persistência de drawdowns prolongados também ilustra a dificuldade de recuperação da estratégia em períodos de volatilidade elevada.
 
 *   **Crise Subprime (2008):**
     *   Drawdown máximo: ~ -45% (similar ao S&P 500).
@@ -146,6 +174,8 @@ A estratégia underperformou significativamente o buy-and-hold do S&P 500 (Sharp
     *   Erro sistemático: Viés deflacionário excessivo.
 
 **Implicação:** O timing do modelo é sistematicamente atrasado, classifica regimes com base no passado, apresenta baixo poder preditivo.
+
+---
 
 ### 4.4 Validação Estatística do K-Means
 
